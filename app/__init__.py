@@ -1,6 +1,5 @@
 import logging
 from flask import Flask, jsonify
-from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import atexit
@@ -25,9 +24,6 @@ def create_app(config_name='default'):
 
     setup_logging(app)
     setup_database(app)
-
-    # Enable CORS
-    CORS(app)
 
     app.register_blueprint(rules_blue_print)
     app.register_blueprint(bulk_blue_print)
@@ -61,7 +57,6 @@ def setup_logging(app):
         filemode='a'
     )
 
-    # Also log to console
     console_handler = logging.StreamHandler()
     console_handler.setLevel(log_level)
     console_handler.setFormatter(logging.Formatter(log_format))
@@ -69,30 +64,23 @@ def setup_logging(app):
     app.logger.addHandler(console_handler)
     app.logger.setLevel(log_level)
 
-    app.logger.info(f"Application started with log level: {app.config.get('LOG_LEVEL')}")
+    app.logger.info(f"Application has started with log level: {app.config.get('LOG_LEVEL')}")
 
 
 def setup_database(app):
     try:
         db_manager = DatabaseManager(
             connection_string=app.config.get('MONGODB_URI'),
-            database_name=app.config.get('DATABASE_NAME')
+            database_name=app.config.get('MONGODB_DATABASE')
         )
-
-        # Test the connection
-        db_manager.get_database().command('ping')
         app.logger.info("Database connection established successfully")
-
-        # Store database manager in app context for access in other parts
         app.db_manager = db_manager
-
     except PyMongoError as e:
         app.logger.error(f"Failed to connect to MongoDB: {str(e)}")
         raise RuleManagementException(f"Database connection failed: {str(e)}")
     except Exception as e:
         app.logger.error(f"Unexpected error during database setup: {str(e)}")
         raise RuleManagementException(f"Database setup failed: {str(e)}")
-
 
 
 def setup_scheduler(app):

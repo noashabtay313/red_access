@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 def audit_log(action: AuditAction, resource_name_key: str = 'name'):
-    def decorator(f):
-        @wraps(f)
+    def decorator(func):
+        @wraps(func)
         def decorated_function(*args, **kwargs):
             tenant_id = request.headers.get('X-Tenant-ID')
             user_id = request.headers.get('X-User-ID', 'system')
@@ -28,9 +28,8 @@ def audit_log(action: AuditAction, resource_name_key: str = 'name'):
                 'resource_name': resource_name,
                 'request_data': request.get_json() if request.method in ['POST', 'PUT', 'PATCH'] else None
             }
-
             try:
-                result = f(*args, **kwargs)
+                result = func(*args, **kwargs)
                 if tenant_id:
                     audit_service = AuditService()
                     audit_log_entry = AuditLog(
@@ -46,9 +45,7 @@ def audit_log(action: AuditAction, resource_name_key: str = 'name'):
                         }
                     )
                     audit_service.log_audit_event(audit_log_entry)
-
                 return result
-
             except Exception as e:
                 if tenant_id:
                     audit_service = AuditService()
@@ -66,9 +63,5 @@ def audit_log(action: AuditAction, resource_name_key: str = 'name'):
                         }
                     )
                     audit_service.log_audit_event(audit_log_entry)
-
-                raise  # Re-raise the exception
-
         return decorated_function
-
     return decorator

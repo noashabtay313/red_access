@@ -3,6 +3,8 @@ from flask import request, jsonify
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Tuple
 import logging
+
+import app
 from app.exceptions.custom_exceptions import RateLimitExceededError
 
 logger = logging.getLogger(__name__)
@@ -17,10 +19,10 @@ class RateLimiter:
         self._limits[tenant_id] = limit
         logger.info(f"Rate limit set for tenant {tenant_id}: {limit} requests/minute")
 
-# improve this method, separate the operations for better readability
     def is_allowed(self, tenant_id: str, default_limit_per_minute: int = 100) -> Tuple[bool, int]:
         now = datetime.now(timezone.utc)
-        start_time = now - timedelta(minutes=1)
+        rate_limit_time_window_minutes = app.config.Config.RATE_LIMIT_TIME_WINDOW_MINUTES
+        requests_start_time = now - timedelta(minutes=rate_limit_time_window_minutes)
 
         tenant_rate_limit = self._limits.get(tenant_id, default_limit_per_minute)
 
@@ -30,7 +32,7 @@ class RateLimiter:
         # Remove old requests outside the window
         self._requests[tenant_id] = [
             request_time for request_time in self._requests[tenant_id]
-            if request_time > start_time
+            if request_time > requests_start_time
         ]
 
         # Check if limit is exceeded
@@ -63,10 +65,9 @@ rate_limiter = RateLimiter()
 
 
 def rate_limit(default_limit: int = 100):
-    def decorator(f):
-        @wraps(f)
+    def decorator(func):
+        @wraps(func)
         def decorated_function(*args, **kwargs):
-            # Extract tenant_id from request
             tenant_id = request.headers.get('X-Tenant-ID')
             if not tenant_id:
                 return jsonify({'error': 'X-Tenant-ID header is required'}), 400
@@ -75,7 +76,7 @@ def rate_limit(default_limit: int = 100):
             if not allowed:
                 raise RateLimitExceededError(tenant_id)
 
-            response = f(*args, **kwargs)
+            response = func(*args, **kwargs)
             if hasattr(response, 'headers'):
                 response.headers['X-RateLimit-Limit'] = str(rate_limiter._limits.get(tenant_id, default_limit))
                 response.headers['X-RateLimit-Remaining'] = str(remaining)

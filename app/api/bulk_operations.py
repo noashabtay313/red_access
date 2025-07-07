@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 import logging
+
+import app
 from app.services.bulk_operation_service import BulkOperationService
 from app.decorators.rate_limiter import rate_limit
-from app.decorators.tenant_validator import validate_tenant
 from app.decorators.audit_logger import audit_log
 from app.decorators.error_handler import handle_errors
 from app.models.audit_log import AuditAction
@@ -15,8 +16,7 @@ bulk_blue_print = Blueprint('bulk_operations', __name__, url_prefix='/api/v1/bul
 
 @bulk_blue_print.route('/rules', methods=['POST'])
 @handle_errors
-@rate_limit(default_limit=50)
-@validate_tenant(required_permission='write')
+@rate_limit(default_limit=app.config.Config.DEFAULT_RATE_LIMIT_PER_MINUTE)
 @audit_log(action=AuditAction.BULK_CREATE, resource_name_key='operations')
 def bulk_operations(tenant_id: str):
     bulk_service = BulkOperationService()

@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta, timezone
 import logging
+
+import app
 from app.services.audit_service import AuditService
 from app.decorators.rate_limiter import rate_limit
-from app.decorators.tenant_validator import validate_tenant
 from app.decorators.error_handler import handle_errors
 
 logger = logging.getLogger(__name__)
@@ -13,8 +14,7 @@ audit_blue_print = Blueprint('audit', __name__, url_prefix='/api/v1/audit')
 
 @audit_blue_print.route('/logs', methods=['GET'])
 @handle_errors
-@rate_limit(default_limit=100)
-@validate_tenant(required_permission='read')
+@rate_limit(default_limit=app.config.Config.DEFAULT_RATE_LIMIT_PER_MINUTE)
 def get_audit_logs(tenant_id: str):
     audit_service = AuditService()
 
@@ -54,8 +54,7 @@ def get_audit_logs(tenant_id: str):
 
 @audit_blue_print.route('/summary', methods=['GET'])
 @handle_errors
-@rate_limit(default_limit=100)
-@validate_tenant(required_permission='read')
+@rate_limit(default_limit=app.config.Config.DEFAULT_RATE_LIMIT_PER_MINUTE)
 def get_audit_summary(tenant_id: str):
     audit_service = AuditService()
 
